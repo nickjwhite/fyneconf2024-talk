@@ -2,7 +2,7 @@
 title: Advanced cross-platform packaging with Fyne
 subtitle: |
     \
-    https://github.com/nickjwhite/fyneconf2024-talk
+    [https://github.com/nickjwhite/fyneconf2024-talk](https://github.com/nickjwhite/fyneconf2024-talk)
 author: Nick White
 date: 2024-09-20
 aspectratio: 169
@@ -11,7 +11,7 @@ toc: true
 toc-title: Contents
 ---
 
-# Caveat
+## Caveat
 
 I haven't used `fyne-cross` before
 
@@ -23,7 +23,7 @@ Let me know!
 
 OCR software I developed a few years ago, and maintain.
 
-https://rescribe.xyz/rescribe | https://github.com/rescribe/bookpipeline
+[https://rescribe.xyz/rescribe](https://rescribe.xyz/rescribe) | [https://github.com/rescribe/bookpipeline](https://github.com/rescribe/bookpipeline)
 
 Look in the `cmd/rescribe` directory
 
@@ -75,7 +75,21 @@ Can cross-compile other binaries and pick the appropriate one using build constr
 
 Can unpack whatever is in `tesszip` into a temporary directory and call the appropriate command, or skip this step if it's empty.
 
-These zip files can be downloaded with `go generate`.
+## Downloading the zip files
+
+You can create a small go program to download the zip files to embed.
+
+	getembeds.go:
+	//go:build ignore
+	package main
+	// download needed files and check checksums...
+
+	main.go:
+	package main
+	//go:generate go run getembeds.go
+	// regular go program continues...
+
+Then they can be downloaded by running `go generate`.
 
 ## Making these embedded binaries work
 
@@ -113,26 +127,56 @@ And of course, this has to be done on every architecture you want to support.
 
 # Linux packaging with Flatpak
 
--------
+Need to create a YAML file describing how to build it.
 
-# notes:
+Build environment doesn't have internet access, so need to vendor all modules, upload them, and add it to YAML sources.
 
-mostly about good packaging
+	go mod vendor
+	tar c vendor | xz > modules-yyyymmdd.tar.xz
 
-haven't used fyne-cross, but this should be handy regardless
+## Useful build tags
 
-intro to rescribe
+Fyne provides several build tags which are useful for flatpaks.
 
-osx creating a binary containing arm64 & amd64. codesign
+The `flatpak` tag enables desktop portals, so that native file picker is used and the app is better sandboxed.
 
-using embed to include natively compiled binaries
-- windows making dlls static
-- again creating multiarch osx binaries
-- keeping go get still working by having sane fallbacks
+The `wayland` tag enables wayland rendering, which is better for modern Linux systems.
 
-flatpak & flathub. wayland, desktop portals. thank jakob
-- need to create vendor
-- a script to pick xorg / wayland
+Not all systems support wayland, so we can build both versions and create a launcher script to pick one. Flatpaks run in a sandbox, so set any working directories or similar in the launcher script too.
 
-potential improvements to fyne package / fyne cross
+Thanks to Jacob Alzén for his work making this all work so well with Fyne.
 
+## YAML extract
+
+	build-commands:
+	  - cd cmd/rescribe && go build -tags flatpak .
+	  - cd cmd/rescribe && go build -tags flatpak,wayland -o rescribe-wayland .
+	  - install -Dm00755 cmd/rescribe/rescribe $FLATPAK_DEST/bin/rescribe-bin
+	  - install -Dm00755 cmd/rescribe/rescribe-wayland $FLATPAK_DEST/bin/rescribe-bin-wayland
+	  - printf '(launcher script)' > $FLATPACK_DEST/bin/rescribe
+
+Launcher script:
+
+	#!/bin/sh
+	export TMPDIR=$XDG_RUNTIME_DIR
+	bin=rescribe-bin
+	test -n "$WAYLAND_DISPLAY" && bin=rescribe-bin-wayland
+	"$bin"
+
+# Graceful fallbacks
+
+It is worth making sure that basic tools like `fyne get` and `go run` work well.
+
+Ensure that anything complex to build and optional is behind build tags which you can set in a makefile.
+
+Embedded binaries are optional in rescribe, if you don't include the `embed` tag they will not be included, and the code will detect that they aren't included and fall back to other behaviour.
+
+## The end
+
+nick@rescribe.xyz
+
+[https://github.com/nickjwhite/fyneconf2024-talk](https://github.com/nickjwhite/fyneconf2024-talk)
+
+[https://rescribe.xyz/rescribe](https://rescribe.xyz/rescribe)
+
+[https://github.com/rescribe/bookpipeline](https://github.com/rescribe/bookpipeline)
