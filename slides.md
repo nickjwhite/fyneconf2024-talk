@@ -119,11 +119,11 @@ Then re-sign the executables and libraries:
 
 	codesign -f -s - liblept.5.dylib
 
-Is there an easier way to do this?
-
 ## Making these embedded binaries work
 
 And of course, this has to be done on every architecture you want to support.
+
+Is there an easier way to do this?
 
 # Linux packaging with Flatpak
 
@@ -132,7 +132,17 @@ Need to create a YAML file describing how to build it.
 Build environment doesn't have internet access, so need to vendor all modules, upload them, and add it to YAML sources.
 
 	go mod vendor
-	tar c vendor | xz > modules-yyyymmdd.tar.xz
+	tar c vendor | xz > modules-yyyymmdd-commit.tar.xz
+
+	sources:
+	  - type: git
+	    url: https://github.com/rescribe/bookpipeline
+	    tag: v1.3.0
+	    commit: 6230fc2cf55e2e330caa44f534209c9fba35daa0
+	  - type: archive
+	    url: https://rescribe.xyz/rescribe/modules-20240409-1a4506.tar.xz
+	    sha256: 0452ec822b9c807d9710ec34ed65169ec342039620f614d483cf91443e7cfc5e
+	    strip-components: 0
 
 ## Useful build tags
 
@@ -149,11 +159,12 @@ Thanks to Jacob Alzén for his work making this all work so well with Fyne.
 ## YAML extract
 
 	build-commands:
-	  - cd cmd/rescribe && go build -tags flatpak .
-	  - cd cmd/rescribe && go build -tags flatpak,wayland -o rescribe-wayland .
-	  - install -Dm00755 cmd/rescribe/rescribe $FLATPAK_DEST/bin/rescribe-bin
-	  - install -Dm00755 cmd/rescribe/rescribe-wayland $FLATPAK_DEST/bin/rescribe-bin-wayland
+	  - go build -tags flatpak .
+	  - go build -tags flatpak,wayland -o rescribe-wayland .
+	  - install -Dm00755 rescribe $FLATPAK_DEST/bin/rescribe-bin
+	  - install -Dm00755 rescribe-wayland $FLATPAK_DEST/bin/rescribe-bin-wayland
 	  - printf '(launcher script)' > $FLATPACK_DEST/bin/rescribe
+	  - chmod 755 $FLATPACK_DEST/bin/rescribe
 
 Launcher script:
 
